@@ -1,7 +1,11 @@
 const { response } = require("express");
 const User = require("../models/User");
 const mailSender = require("../utils/mailSender");
+<<<<<<< HEAD
 const bcrypt = require('bcryptjs');
+=======
+const bcrypt = require("bcryptjs");
+>>>>>>> 7e146a9c21d83d825a50b1b2922e961f2773e31d
 const crypto = require('crypto');
 
 //resetPasswordTOken
