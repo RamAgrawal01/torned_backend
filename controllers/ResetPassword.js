@@ -1,11 +1,10 @@
 const { response } = require("express");
 const User = require("../models/User");
 const mailSender = require("../utils/mailSender");
-<<<<<<< HEAD
+
 const bcrypt = require('bcryptjs');
-=======
-const bcrypt = require("bcryptjs");
->>>>>>> 7e146a9c21d83d825a50b1b2922e961f2773e31d
+
+
 const crypto = require('crypto');
 
 //resetPasswordTOken
@@ -35,7 +34,7 @@ exports.resetPasswordToken = async(req,res) => {
          {new:true}
      );
      //create url
-         const url = `http://localhost:3000/update-password/${token}`
+         const url = `https://torned-backend.vercel.app/update-password/${token}`
      //send mail containing url
      await mailSender(email,"Password Reset Link"
           , `Password Reset Link : ${url}`);
