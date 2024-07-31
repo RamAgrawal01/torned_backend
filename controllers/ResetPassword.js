@@ -34,7 +34,7 @@ exports.resetPasswordToken = async(req,res) => {
          {new:true}
      );
      //create url
-         const url = `https://torned-backend.vercel.app/update-password/${token}`
+         const url = `https://torned-site-fronthend.vercel.app/update-password/${token}`
      //send mail containing url
      await mailSender(email,"Password Reset Link"
           , `Password Reset Link : ${url}`);
