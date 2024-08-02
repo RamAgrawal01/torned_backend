@@ -53,7 +53,8 @@ app.use('/api/v1/quiz',quizRoutes);
 // Default Route
 app.get('/', (req, res) => {
     res.send(`<div>
-        This is Default Route  
+        Hello ! This is backend page 
+        This is Default Route for Torned website  
         <p>Everything is OK</p>
     </div>`);
 });
