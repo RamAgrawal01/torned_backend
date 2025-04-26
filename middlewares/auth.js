@@ -6,12 +6,12 @@ const User = require("../models/User");
 //auth
 exports.auth = async(req,res,next)=>{
     try{
-        //extract token
-        const token = req.cookies.token 
-        || req.body.token 
-        || req.header("Authorization").replace("Bearer ","");
+        console.log("Hello");
+        let token = null;
+        if (req.cookies.token) token = req.cookies.token;
+        else if (req.body.token) token = req.body.token;
+        else if (req.header("Authorization")) token = req.header("Authorization").replace("Bearer ","");
 
-        //if token is missing , 
         if(!token){
             return res.status(401).json({
                 success : false ,
@@ -19,9 +19,8 @@ exports.auth = async(req,res,next)=>{
             });
         }
 
-        //verify token
         try{
-            const decode =  jwt.verify(token , process.env.JWT_SECRET);
+            const decode = jwt.verify(token , process.env.JWT_SECRET);
             console.log(decode);
             req.user = decode;
         }
@@ -36,7 +35,7 @@ exports.auth = async(req,res,next)=>{
     catch(err){
         return res.status(401).json({
             success :false ,
-            message : `Connot verify -- ${err}`
+            message : `Cannot verify -- ${err}`
         });
     }
 }

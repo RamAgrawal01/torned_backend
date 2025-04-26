@@ -14,71 +14,71 @@ require('dotenv').config();
 
 //******Initialize Payment ***************** */
 exports.capturePayment = async (req, res) => {
-    const { coursesId } = req.body;
-    const userId = req.user ? req.user.id : null; // Ensure userId is not null or undefined
-  
-    console.log("Received courses:", coursesId);
-    console.log("User ID:", userId);
+  console.log("Corrected backend capture payment ist step");
+  const { coursesId } = req.body;
+  const userId = req.user ? req.user.id : null; // Ensure userId is not null or undefined
 
-    //mistake : i got the courses id is in form of arrray Received courses: [ { courseId: '669913ec63a5cb1ec76e8c2b' } ] this is not good because
-    // it is course id property rather than just course id as string so need to updated it in string format 
-  
-    if (!coursesId || coursesId.length === 0) {
-      return res.status(401).json({
-        success: false,
-        message: "Please Provide Course Id"
-      });
-    }
-  
-    let totalAmount = 0;
-    for (const course_id of coursesId) {
-      let course;
-      try {
-        course = await Course.findById(course_id);
-        if (!course) {
-          return res.status(200).json({
-            success: false,
-            message: "Could not find the course"
-          });
-        }
-  
-        const uid = new mongoose.Types.ObjectId(userId);
-        if (course.studentsEnrolled.includes(uid)) {
-          return res.status(401).json({
-            success: false,
-            message: "Student is Already Enrolled in this course"
-          });
-        }
-        totalAmount += course.price;
-      } catch (err) {
-        console.log(err);
-        return res.status(500).json({
+  console.log("Received courses:", coursesId);
+  console.log("User ID:", userId);
+
+  //mistake : i got the courses id is in form of arrray Received courses: [ { courseId: '669913ec63a5cb1ec76e8c2b' } ] this is not good because
+  // it is course id property rather than just course id as string so need to updated it in string format 
+
+  if (!coursesId || coursesId.length === 0) {
+    return res.status(401).json({
+      success: false,
+      message: "Please Provide Course Id"
+    });
+  }
+
+  let totalAmount = 0;
+  for (const course_id of coursesId) {
+    let course;
+    try {
+      course = await Course.findById(course_id);
+      if (!course) {
+        return res.status(200).json({
           success: false,
-          message: err.message
+          message: "Could not find the course"
         });
       }
-    }
-  
-    const options = {
-      amount: totalAmount * 100,
-      currency: "INR",
-      receipt: Math.random(Date.now()).toString(),
-    };
-    try {
-      const paymentResponse = await instance.orders.create(options);
-      res.status(200).json({
-        success: true,
-        message: paymentResponse,
-      });
-    } catch (error) {
-      console.log(error);
+
+      const uid = new mongoose.Types.ObjectId(userId);
+      if (course.studentsEnrolled.includes(uid)) {
+        return res.status(401).json({
+          success: false,
+          message: "Student is Already Enrolled in this course"
+        });
+      }
+      totalAmount += course.price;
+    } catch (err) {
+      console.log(err);
       return res.status(500).json({
         success: false,
-        message: "Could not initiate payment"
+        message: err.message
       });
     }
-  };
+  }
 
+  const options = {
+    amount: totalAmount * 100,
+    currency: "INR",
+    receipt: Math.random(Date.now()).toString(),
+  };
+  try {
+    const paymentResponse = await instance.orders.create(options);
+    res.status(200).json({
+      success: true,
+      message: paymentResponse,
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      success: false,
+      message: "Could not initiate payment"
+    });
+  }
+};
 
 exports.verifyPayment = async(req,res) => {
     const razorpay_order_id = req.body?.razorpay_order_id;

@@ -5,6 +5,7 @@ const Course = require("../models/Course");
 exports.createRating = async (req, res) => {
     try {
       // Get user id
+      console.log("get rating")
       const userId = req.user.id;
   
       // Fetch data from body
