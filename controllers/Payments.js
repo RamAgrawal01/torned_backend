@@ -13,16 +13,20 @@ require('dotenv').config();
 // *********** PAYMENT FOR MULTIPLE ITEMS ***************//
 
 //******Initialize Payment ***************** */
+const Cashfree = require('cashfree-pg');
+const axios = require('axios');
+
+Cashfree.XClientId = process.env.CASHFREE_APP_ID;
+Cashfree.XClientSecret = process.env.CASHFREE_SECRET_KEY;
+Cashfree.XEnvironment = '' // change to PRODUCTION when live
+
 exports.capturePayment = async (req, res) => {
-  console.log("Corrected backend capture payment ist step");
+  console.log("Corrected backend capture payment first step");
   const { coursesId } = req.body;
-  const userId = req.user ? req.user.id : null; // Ensure userId is not null or undefined
+  const userId = req.user ? req.user.id : null;
 
   console.log("Received courses:", coursesId);
   console.log("User ID:", userId);
-
-  //mistake : i got the courses id is in form of arrray Received courses: [ { courseId: '669913ec63a5cb1ec76e8c2b' } ] this is not good because
-  // it is course id property rather than just course id as string so need to updated it in string format 
 
   if (!coursesId || coursesId.length === 0) {
     return res.status(401).json({
@@ -32,17 +36,17 @@ exports.capturePayment = async (req, res) => {
   }
 
   let totalAmount = 0;
-  for (const course_id of coursesId) {
+  for (const item of coursesId) {
+    const courseId = item.courseId || item; // Adjust for your frontend
     let course;
     try {
-      course = await Course.findById(course_id);
+      course = await Course.findById(courseId);
       if (!course) {
         return res.status(200).json({
           success: false,
           message: "Could not find the course"
         });
       }
-
       const uid = new mongoose.Types.ObjectId(userId);
       if (course.studentsEnrolled.includes(uid)) {
         return res.status(401).json({
@@ -60,19 +64,42 @@ exports.capturePayment = async (req, res) => {
     }
   }
 
-  const options = {
-    amount: totalAmount * 100,
-    currency: "INR",
-    receipt: Math.random(Date.now()).toString(),
-  };
   try {
-    const paymentResponse = await instance.orders.create(options);
-    res.status(200).json({
+    const orderId = `ORDER_${Date.now()}`;
+
+    const orderData = {
+      order_id: orderId,
+      order_amount: totalAmount, // Cashfree expects rupees, no *100
+      order_currency: "INR",
+      customer_details: {
+        customer_id: userId,
+        customer_email: req.user.email || "test@example.com",
+        customer_phone: req.user.phone || "9999999999",
+      },
+    };
+    console.log("Order data: ",orderData)
+
+    const response = await axios.post(
+      'https://sandbox.cashfree.com/pg/orders',
+      orderData,
+      {
+        headers: {
+          'x-api-version': '2022-09-01',
+          'x-client-id': process.env.CASHFREE_APP_ID,
+          'x-client-secret': process.env.CASHFREE_SECRET_KEY,
+          'Content-Type': 'application/json',
+        }
+      }
+    );
+    // console.log('Response: ',response);
+
+    return res.status(200).json({
       success: true,
-      message: paymentResponse,
+      message: response.data,
     });
+
   } catch (error) {
-    console.log(error);
+    console.error(error.response?.data || error.message);
     return res.status(500).json({
       success: false,
       message: "Could not initiate payment"
@@ -80,42 +107,63 @@ exports.capturePayment = async (req, res) => {
   }
 };
 
-exports.verifyPayment = async(req,res) => {
-    const razorpay_order_id = req.body?.razorpay_order_id;
-    const razorpay_payment_id = req.body?.razorpay_payment_id;
-    const razorpay_signature = req.body?.razorpay_signature;
-    const courses = req.body?.coursesId;
-    const userId = req.user.id;
 
-    if(!razorpay_order_id || !razorpay_payment_id || !razorpay_signature
-        || !courses || !userId
-    ){
-        return res.status(401).json({
-            success : false,
-            message : "Payment failed"
-        })
+exports.verifyPayment = async (req, res) => {
+  console.log("verificagtion wala function call ho rha ha ")
+  const { orderId, coursesId } = req.body;
+  console.log("Order id: ",orderId);
+  console.log("curseid: ",coursesId);
+  const userId = req.user.id;
+
+  if (!orderId || !coursesId || !userId) {
+    return res.status(401).json({
+      success: false,
+      message: "Missing fields"
+    });
+  }
+console.log("Order id: ",orderId);
+console.log("curseid: ",coursesId);
+console.log("user id: ",userId);
+  try {
+    const response = await axios.get(
+      `https://sandbox.cashfree.com/pg/orders/${orderId}`,
+      {
+        headers: {
+          'x-api-version': '2022-09-01',
+          'x-client-id': process.env.CASHFREE_APP_ID,
+          'x-client-secret': process.env.CASHFREE_SECRET_KEY,
+        }
+      }
+    );
+    console.log("verification sandbox response: ",response);
+
+    const orderStatus = response.data.order_status;
+    console.log("Order status:", orderStatus);
+
+    if (orderStatus === "PAID") {
+      // Enroll the student
+      enrollStudents(coursesId, userId, res);
+
+      return res.status(200).json({
+        success: true,
+        message: "Payment verified and user enrolled"
+      });
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: "Payment not completed"
+      });
     }
 
-    let body = razorpay_order_id + "|" + razorpay_payment_id;
-    const expectedSignature = crypto
-        .createHmac("sha256", process.env.RAZORPAY_SECRET)
-        .update(body.toString())
-        .digest("hex");
+  } catch (error) {
+    console.error(error.response?.data || error.message);
+    return res.status(500).json({
+      success: false,
+      message: "Could not verify payment"
+    });
+  }
+};
 
-    if(expectedSignature === razorpay_signature){
-        //enrolll student in course
-        enrollStudents(courses,userId,res);
-        //response reutrn
-        return res.status(200).json(
-            {success : true,
-                message: "payment verified"
-            })
-    }
-    return res.status(200).json({
-        success : false ,
-        message : "Payment not verified"
-    })
-}
 
 exports.sendPaymentSuccessEmail = async(req,res)=> {
     const {orderId , paymentId , amount } = req.body;
